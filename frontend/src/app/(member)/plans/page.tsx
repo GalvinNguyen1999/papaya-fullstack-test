@@ -15,10 +15,16 @@ export default function PlansPage() {
   const { data, isLoading, error } = usePlans();
 
   if (isLoading) return <Loading />;
-  if (error) return <ErrorNote>Could not load plans. Is the API running? ({String((error as Error).message)})</ErrorNote>;
+  if (error || !data)
+    return (
+      <ErrorNote>
+        Could not load plans. Is the API running?
+        {error ? ` (${String((error as Error).message)})` : ""}
+      </ErrorNote>
+    );
 
-  const plans = data!.plans;
-  const recommended = data!.recommended || recommendedPlan(plans);
+  const plans = data.plans;
+  const recommended = data.recommended || recommendedPlan(plans);
   const rows = comparisonRows(plans);
 
   return (

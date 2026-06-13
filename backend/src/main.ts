@@ -8,7 +8,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix("api");
-  app.enableCors({ origin: process.env.CORS_ORIGIN?.split(",") ?? "*" });
+  // CORS: "*" or unset → reflect any origin (origin:true). A comma list → exact allow-list.
+  // NOTE: passing ["*"] as an array does NOT work — Express matches it as a literal origin,
+  // so the wildcard must stay a boolean/string, never an array.
+  const corsOrigin = process.env.CORS_ORIGIN?.trim();
+  app.enableCors({
+    origin: !corsOrigin || corsOrigin === "*" ? true : corsOrigin.split(",").map((o) => o.trim()),
+  });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const config = new DocumentBuilder()
