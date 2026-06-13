@@ -1,0 +1,133 @@
+// Prisma schema — PostgreSQL. Models map to the domain in PLAN.md §3.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ClaimType {
+  OUTPATIENT
+  INPATIENT
+  DENTAL
+  MATERNITY
+}
+
+enum ClaimStatus {
+  SUBMITTED
+  DOCUMENTS_VERIFIED
+  UNDER_ASSESSMENT
+  PENDING_INFO
+  APPROVED
+  REJECTED
+  PAYMENT_INITIATED
+  CLOSED
+}
+
+enum DocStatus {
+  complete
+  incomplete
+  missing
+  type_mismatch
+}
+
+enum Recommendation {
+  APPROVE
+  REJECT
+  REQUEST_MORE_INFO
+}
+
+model Plan {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  monthlyPremium Int
+  annualLimit    Int
+  copayPct       Int
+  waitingDays    Int
+  benefits       Json
+  highlights     String[]
+  policies       Policy[]
+}
+
+model Member {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  dateOfBirth DateTime?
+  policies    Policy[]
+}
+
+model Policy {
+  id            String   @id @default(cuid())
+  policyNumber  String   @unique
+  member        Member   @relation(fields: [memberId], references: [id])
+  memberId      String
+  plan          Plan     @relation(fields: [planId], references: [id])
+  planId        String
+  coverageStart DateTime
+  coverageEnd   DateTime
+  active        Boolean  @default(true)
+  claims        Claim[]
+}
+
+model Claim {
+  id             String       @id @default(cuid())
+  claimNumber    String       @unique
+  policy         Policy       @relation(fields: [policyId], references: [id])
+  policyId       String
+  memberName     String
+  claimType      ClaimType
+  diagnosis      String
+  icd10          String?
+  procedures     String[]
+  amount         Float
+  treatmentStart DateTime
+  treatmentEnd   DateTime
+  status         ClaimStatus  @default(SUBMITTED)
+  createdAt      DateTime     @default(now())
+  documents      Document[]
+  assessments    Assessment[]
+  events         ClaimEvent[]
+}
+
+model Document {
+  id           String    @id @default(cuid())
+  claim        Claim     @relation(fields: [claimId], references: [id])
+  claimId      String
+  type         String
+  expectedType String
+  status       DocStatus @default(complete)
+  issues       String[]
+}
+
+model Assessment {
+  id             String         @id @default(cuid())
+  claim          Claim          @relation(fields: [claimId], references: [id])
+  claimId        String
+  recommendation Recommendation
+  reasoning      String
+  narrative      String
+  narrativeProvider String       @default("template")
+  coveredAmount  Float
+  copayAmount    Float
+  memberPays     Float
+  citations      Json
+  toolLogs       Json
+  report         Json
+  createdAt      DateTime       @default(now())
+}
+
+model ClaimEvent {
+  id        String      @id @default(cuid())
+  claim     Claim       @relation(fields: [claimId], references: [id])
+  claimId   String
+  fromState ClaimStatus?
+  toState   ClaimStatus
+  actorRole String
+  reason    String?
+  createdAt DateTime    @default(now())
+}
